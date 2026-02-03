@@ -1619,7 +1619,6 @@ const TradingPage = () => {
                     <th className="text-left py-2 px-3 font-normal">Current</th>
                     <th className="text-left py-2 px-3 font-normal">SL</th>
                     <th className="text-left py-2 px-3 font-normal">TP</th>
-                    <th className="text-left py-2 px-3 font-normal">Charges</th>
                     <th className="text-left py-2 px-3 font-normal">Swap</th>
                     <th className="text-left py-2 px-3 font-normal">P/L</th>
                     <th className="text-left py-2 px-3 font-normal">Action</th>
@@ -1661,7 +1660,6 @@ const TradingPage = () => {
                           <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{formatPrice(currentPrice)}</td>
                           <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{trade.stopLoss ? formatPrice(trade.stopLoss) : '-'}</td>
                           <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{trade.takeProfit ? formatPrice(trade.takeProfit) : '-'}</td>
-                          <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>${trade.commission?.toFixed(2) || '0.00'}</td>
                           <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>${trade.swap?.toFixed(2) || '0.00'}</td>
                           <td className={`py-2 px-3 text-xs font-medium ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                             ${pnl.toFixed(2)}
@@ -1766,7 +1764,6 @@ const TradingPage = () => {
                       <th className="text-left py-2 px-3 font-normal">Lots</th>
                       <th className="text-left py-2 px-3 font-normal">Entry</th>
                       <th className="text-left py-2 px-3 font-normal">Close</th>
-                      <th className="text-left py-2 px-3 font-normal">Charges</th>
                       <th className="text-left py-2 px-3 font-normal">Swap</th>
                       <th className="text-left py-2 px-3 font-normal">P/L</th>
                       <th className="text-left py-2 px-3 font-normal">Closed By</th>
@@ -1795,7 +1792,6 @@ const TradingPage = () => {
                             <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{trade.quantity}</td>
                             <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{formatPrice(trade.openPrice)}</td>
                             <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{formatPrice(trade.closePrice)}</td>
-                            <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>${trade.commission?.toFixed(2) || '0.00'}</td>
                             <td className={`py-2 px-3 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>${trade.swap?.toFixed(2) || '0.00'}</td>
                             <td className={`py-2 px-3 text-xs font-medium ${trade.realizedPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                               ${trade.realizedPnl?.toFixed(2) || '0.00'}
