@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Globe } from 'lucide-react'
+import { ChevronDown, Globe, Download } from 'lucide-react'
 
 // Navigation Component
 const Navigation = () => {
@@ -40,6 +40,14 @@ const Navigation = () => {
           </div>
         </div>
         <div className="flex items-center gap-[12px] md:gap-[24px]">
+          <a
+            href="/PipXcapital.apk"
+            download
+            className="flex items-center gap-2 rounded-lg border border-green-500/50 bg-green-500/10 px-4 lg:px-5 py-2 lg:py-2.5 text-[14px] lg:text-[15px] font-semibold text-green-400 backdrop-blur-sm transition-all hover:bg-green-500/20 active:scale-95"
+          >
+            <Download className="w-4 h-4" />
+            Download APK
+          </a>
           <button className="flex items-center gap-[6px] text-white hover:text-[#CFF12F] transition-colors text-[14px] font-medium">
             <Globe size={18} />
             <span className="hidden sm:inline">EN</span>
