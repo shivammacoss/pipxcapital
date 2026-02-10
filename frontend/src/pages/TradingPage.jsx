@@ -1439,14 +1439,7 @@ const TradingPage = () => {
                         <div className={`text-[9px] ${isDarkMode ? 'text-gray-600' : 'text-gray-500'}`}>Bid</div>
                       </div>
                       <div className={`px-1.5 py-0.5 rounded text-[10px] font-medium min-w-[28px] text-center mx-2 ${isDarkMode ? 'bg-[#2a2a2a] text-cyan-400' : 'bg-blue-100 text-blue-600'}`}>
-                        {/* Show admin-set spread if available, otherwise show market spread */}
-                        {adminSpreads[inst.symbol]?.spread > 0 ? (
-                          // Convert admin spread to pips for display
-                          inst.symbol.includes('JPY') ? (adminSpreads[inst.symbol].spread * 100).toFixed(1) :
-                          inst.bid > 100 ? adminSpreads[inst.symbol].spread.toFixed(2) :
-                          (adminSpreads[inst.symbol].spread * 10000).toFixed(1)
-                        ) : inst.spread > 0 ? (
-                          // Convert market spread to pips
+                        {inst.spread > 0 ? (
                           inst.symbol.includes('JPY') ? (inst.spread * 100).toFixed(1) :
                           inst.bid > 100 ? inst.spread.toFixed(2) :
                           (inst.spread * 10000).toFixed(1)
