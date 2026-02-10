@@ -434,6 +434,72 @@ const AdminFundManagement = () => {
                 </div>
               </div>
 
+              {/* OxaPay / Crypto Payment Proof */}
+              {selectedTxn.paymentMethod === 'Crypto' && (
+                <div className="border-t border-gray-700 pt-4">
+                  <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                    💰 Crypto Payment Details
+                  </h3>
+                  <div className="bg-dark-700 rounded-lg p-4 space-y-2 text-sm">
+                    {selectedTxn.transactionRef && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">OxaPay Track ID</span>
+                        <span className="text-cyan-400 font-mono">{selectedTxn.transactionRef.replace('OXA-', '').replace('OXA-PAYOUT-', '')}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Gateway</span>
+                      <span className="text-white">OxaPay</span>
+                    </div>
+                    {selectedTxn.status === 'Approved' && selectedTxn.adminRemarks?.includes('Auto-approved') && (
+                      <div className="mt-2 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                        <p className="text-green-400 text-xs">✅ Payment verified & auto-approved by OxaPay gateway</p>
+                        <p className="text-gray-500 text-xs mt-1">{selectedTxn.adminRemarks}</p>
+                      </div>
+                    )}
+                    {selectedTxn.status === 'Pending' && (
+                      <div className="mt-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                        <p className="text-yellow-400 text-xs">⏳ Awaiting payment confirmation from OxaPay</p>
+                      </div>
+                    )}
+                    {selectedTxn.status === 'Rejected' && selectedTxn.adminRemarks?.includes('expired') && (
+                      <div className="mt-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                        <p className="text-red-400 text-xs">❌ Payment expired — user did not complete payment</p>
+                        <p className="text-gray-500 text-xs mt-1">{selectedTxn.adminRemarks}</p>
+                      </div>
+                    )}
+                    {selectedTxn.cryptoAddress && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Wallet Address</span>
+                        <span className="text-white font-mono text-xs break-all max-w-[200px] text-right">{selectedTxn.cryptoAddress}</span>
+                      </div>
+                    )}
+                    {selectedTxn.cryptoCurrency && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Currency</span>
+                        <span className="text-white">{selectedTxn.cryptoCurrency}</span>
+                      </div>
+                    )}
+                    {selectedTxn.cryptoNetwork && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Network</span>
+                        <span className="text-white">{selectedTxn.cryptoNetwork}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Admin Remarks */}
+              {selectedTxn.adminRemarks && selectedTxn.paymentMethod !== 'Crypto' && (
+                <div className="border-t border-gray-700 pt-4">
+                  <h3 className="text-white font-semibold mb-3">Admin Remarks</h3>
+                  <div className="bg-dark-700 rounded-lg p-4">
+                    <p className="text-gray-300 text-sm">{selectedTxn.adminRemarks}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Payment Screenshot */}
               {selectedTxn.screenshot && (
                 <div className="border-t border-gray-700 pt-4">
