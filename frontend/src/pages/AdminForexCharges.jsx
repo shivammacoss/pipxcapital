@@ -75,7 +75,7 @@ const AdminForexCharges = () => {
   const fetchCharges = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/charges?segment=Forex`)
+      const res = await fetch(`${API_URL}/charges`)
       const data = await res.json()
       if (data.success) {
         setCharges(data.charges || [])
@@ -208,6 +208,10 @@ const AdminForexCharges = () => {
       return `${userName} - ${charge.instrumentSymbol || 'All Instruments'}`
     }
     if (charge.level === 'INSTRUMENT') return charge.instrumentSymbol
+    if (charge.level === 'ACCOUNT_TYPE') {
+      const accName = charge.accountTypeId?.name || 'Unknown Account Type'
+      return `${accName}${charge.segment ? ` - ${charge.segment}` : ''}`
+    }
     if (charge.level === 'SEGMENT') return charge.segment
     if (charge.level === 'GLOBAL') return 'Global'
     return charge.level
@@ -551,7 +555,7 @@ const AdminForexCharges = () => {
               {/* Step 2: Segment Filter */}
               <div>
                 <label className="block text-gray-400 text-xs mb-1">2. Segment <span className="text-gray-600">(optional)</span></label>
-                <select value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value, instrumentSymbol: '' })} className="w-full px-3 py-2 bg-dark-700 border border-gray-600 rounded-lg text-white text-sm">
+                <select value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value, instrumentSymbol: '', level: form.accountTypeId ? 'ACCOUNT_TYPE' : (e.target.value ? 'SEGMENT' : 'GLOBAL') })} className="w-full px-3 py-2 bg-dark-700 border border-gray-600 rounded-lg text-white text-sm">
                   <option value="">All Segments</option>
                   <option value="Forex">Forex</option>
                   <option value="Metals">Metals</option>
@@ -702,7 +706,7 @@ const AdminForexCharges = () => {
               {/* Step 2: Segment Filter */}
               <div>
                 <label className="block text-gray-400 text-xs mb-1">2. Segment <span className="text-gray-600">(optional)</span></label>
-                <select value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value, instrumentSymbol: '' })} className="w-full px-3 py-2 bg-dark-700 border border-gray-600 rounded-lg text-white text-sm">
+                <select value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value, instrumentSymbol: '', level: form.accountTypeId ? 'ACCOUNT_TYPE' : (e.target.value ? 'SEGMENT' : 'GLOBAL') })} className="w-full px-3 py-2 bg-dark-700 border border-gray-600 rounded-lg text-white text-sm">
                   <option value="">All Segments</option>
                   <option value="Forex">Forex</option>
                   <option value="Metals">Metals</option>
