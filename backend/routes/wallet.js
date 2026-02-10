@@ -150,7 +150,7 @@ router.post('/deposit', async (req, res) => {
 // POST /api/wallet/withdraw - Create withdrawal request
 router.post('/withdraw', async (req, res) => {
   try {
-    const { userId, amount, paymentMethod, bankAccountId, bankAccountDetails } = req.body
+    const { userId, amount, paymentMethod, bankAccountId, bankAccountDetails, cryptoAddress, cryptoCurrency, cryptoNetwork } = req.body
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: 'Invalid amount' })
@@ -167,7 +167,7 @@ router.post('/withdraw', async (req, res) => {
       return res.status(400).json({ message: 'Insufficient balance' })
     }
 
-    // Create transaction with bank account details
+    // Create transaction with bank account details or crypto details
     const transaction = new Transaction({
       userId,
       walletId: wallet._id,
@@ -176,7 +176,10 @@ router.post('/withdraw', async (req, res) => {
       paymentMethod,
       status: 'Pending',
       bankAccountId,
-      bankAccountDetails
+      bankAccountDetails,
+      cryptoAddress: cryptoAddress || '',
+      cryptoCurrency: cryptoCurrency || '',
+      cryptoNetwork: cryptoNetwork || ''
     })
     await transaction.save()
 
@@ -358,6 +361,46 @@ router.put('/admin/approve/:id', async (req, res) => {
     transaction.status = 'Approved'
     transaction.processedAt = new Date()
 
+    // If crypto withdrawal, trigger OxaPay payout automatically
+    if (transaction.type === 'Withdrawal' && transaction.paymentMethod === 'Crypto' && transaction.cryptoAddress) {
+      try {
+        const payoutApiKey = process.env.OXAPAY_PAYOUT_API_KEY
+        if (payoutApiKey) {
+          const backendUrl = process.env.BACKEND_URL || 'https://pipxcapital.com/api'
+          const payoutData = {
+            address: transaction.cryptoAddress,
+            amount: transaction.amount,
+            currency: transaction.cryptoCurrency || 'USDT',
+            network: transaction.cryptoNetwork,
+            callback_url: `${backendUrl}/oxapay/webhook`,
+            description: `PipXcapital Withdrawal - ${transaction._id}`
+          }
+
+          const oxaRes = await fetch('https://api.oxapay.com/v1/payout', {
+            method: 'POST',
+            headers: {
+              'payout_api_key': payoutApiKey,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payoutData)
+          })
+          const oxaData = await oxaRes.json()
+
+          if (oxaData.status === 200 && oxaData.data) {
+            transaction.transactionRef = `OXA-PAYOUT-${oxaData.data.track_id}`
+            transaction.adminRemarks = (transaction.adminRemarks || '') + ` | OxaPay payout initiated (track: ${oxaData.data.track_id})`
+            console.log(`[OxaPay Payout] Initiated for transaction ${transaction._id}, track: ${oxaData.data.track_id}`)
+          } else {
+            console.error('[OxaPay Payout] Failed:', oxaData)
+            transaction.adminRemarks = (transaction.adminRemarks || '') + ` | OxaPay payout failed: ${oxaData.message || 'Unknown error'}`
+          }
+        }
+      } catch (payoutError) {
+        console.error('[OxaPay Payout] Error:', payoutError)
+        transaction.adminRemarks = (transaction.adminRemarks || '') + ` | OxaPay payout error: ${payoutError.message}`
+      }
+    }
+
     await wallet.save()
     await transaction.save()
 
@@ -485,6 +528,46 @@ router.put('/transaction/:id/approve', async (req, res) => {
     transaction.status = 'Approved'
     transaction.adminRemarks = adminRemarks || ''
     transaction.processedAt = new Date()
+
+    // If crypto withdrawal, trigger OxaPay payout automatically
+    if (transaction.type === 'Withdrawal' && transaction.paymentMethod === 'Crypto' && transaction.cryptoAddress) {
+      try {
+        const payoutApiKey = process.env.OXAPAY_PAYOUT_API_KEY
+        if (payoutApiKey) {
+          const backendUrl = process.env.BACKEND_URL || 'https://pipxcapital.com/api'
+          const payoutData = {
+            address: transaction.cryptoAddress,
+            amount: transaction.amount,
+            currency: transaction.cryptoCurrency || 'USDT',
+            network: transaction.cryptoNetwork,
+            callback_url: `${backendUrl}/oxapay/webhook`,
+            description: `PipXcapital Withdrawal - ${transaction._id}`
+          }
+
+          const oxaRes = await fetch('https://api.oxapay.com/v1/payout', {
+            method: 'POST',
+            headers: {
+              'payout_api_key': payoutApiKey,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payoutData)
+          })
+          const oxaData = await oxaRes.json()
+
+          if (oxaData.status === 200 && oxaData.data) {
+            transaction.transactionRef = `OXA-PAYOUT-${oxaData.data.track_id}`
+            transaction.adminRemarks = (transaction.adminRemarks || '') + ` | OxaPay payout initiated (track: ${oxaData.data.track_id})`
+            console.log(`[OxaPay Payout] Initiated for transaction ${transaction._id}, track: ${oxaData.data.track_id}`)
+          } else {
+            console.error('[OxaPay Payout] Failed:', oxaData)
+            transaction.adminRemarks = (transaction.adminRemarks || '') + ` | OxaPay payout failed: ${oxaData.message || 'Unknown error'}`
+          }
+        }
+      } catch (payoutError) {
+        console.error('[OxaPay Payout] Error:', payoutError)
+        transaction.adminRemarks = (transaction.adminRemarks || '') + ` | OxaPay payout error: ${payoutError.message}`
+      }
+    }
 
     await wallet.save()
     await transaction.save()

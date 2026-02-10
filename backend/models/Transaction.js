@@ -22,7 +22,7 @@ const transactionSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['Bank Transfer', 'UPI', 'QR Code', 'Internal', 'System', 'Wallet'],
+    enum: ['Bank Transfer', 'UPI', 'QR Code', 'Crypto', 'Internal', 'System', 'Wallet'],
     default: 'Internal'
   },
   description: {
@@ -80,6 +80,19 @@ const transactionSchema = new mongoose.Schema({
     accountNumber: String,
     ifscCode: String,
     upiId: String
+  },
+  // Crypto withdrawal fields
+  cryptoAddress: {
+    type: String,
+    default: ''
+  },
+  cryptoCurrency: {
+    type: String,
+    default: ''
+  },
+  cryptoNetwork: {
+    type: String,
+    default: ''
   },
   status: {
     type: String,
