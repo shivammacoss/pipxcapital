@@ -377,6 +377,43 @@ router.post('/create-payout', async (req, res) => {
   }
 })
 
+// Cleanup: Auto-reject stale pending crypto deposits (older than 70 minutes - invoice lifetime is 60 min + 10 min buffer)
+const cleanupStaleCryptoDeposits = async () => {
+  try {
+    const cutoff = new Date(Date.now() - 70 * 60 * 1000) // 70 minutes ago
+    const staleTransactions = await Transaction.find({
+      type: 'Deposit',
+      paymentMethod: 'Crypto',
+      status: 'Pending',
+      createdAt: { $lt: cutoff }
+    })
+
+    for (const txn of staleTransactions) {
+      const wallet = await Wallet.findById(txn.walletId)
+      if (wallet && wallet.pendingDeposits) {
+        wallet.pendingDeposits -= txn.amount
+        await wallet.save()
+      }
+      txn.status = 'Rejected'
+      txn.adminRemarks = 'Auto-rejected: Payment expired (webhook not received)'
+      txn.processedAt = new Date()
+      await txn.save()
+      console.log(`[OxaPay Cleanup] Auto-rejected stale deposit: ${txn._id}`)
+    }
+
+    if (staleTransactions.length > 0) {
+      console.log(`[OxaPay Cleanup] Cleaned up ${staleTransactions.length} stale deposits`)
+    }
+  } catch (error) {
+    console.error('[OxaPay Cleanup] Error:', error)
+  }
+}
+
+// Run cleanup every 5 minutes
+setInterval(cleanupStaleCryptoDeposits, 5 * 60 * 1000)
+// Also run once on startup
+setTimeout(cleanupStaleCryptoDeposits, 10 * 1000)
+
 // GET /api/oxapay/status - Check if OxaPay is configured
 router.get('/status', async (req, res) => {
   const merchantKey = process.env.OXAPAY_MERCHANT_API_KEY
