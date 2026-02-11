@@ -223,6 +223,17 @@ app.use('/api/employee', employeeRoutes)
 app.use('/api/employee-mgmt', employeeManagementRoutes)
 app.use('/api/oxapay', oxapayRoutes)
 
+// App version check endpoint
+app.get('/api/app-version', (req, res) => {
+  res.json({
+    success: true,
+    minVersion: process.env.MIN_APP_VERSION || '1.0.0',
+    latestVersion: process.env.LATEST_APP_VERSION || '1.0.0',
+    updateUrl: process.env.APP_UPDATE_URL || 'https://pipxcapital.com/download',
+    forceUpdate: process.env.FORCE_APP_UPDATE === 'true'
+  })
+})
+
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
