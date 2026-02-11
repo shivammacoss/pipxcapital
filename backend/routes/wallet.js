@@ -372,7 +372,7 @@ router.put('/admin/approve/:id', async (req, res) => {
             amount: transaction.amount,
             currency: transaction.cryptoCurrency || 'USDT',
             network: transaction.cryptoNetwork,
-            callback_url: `${backendUrl}/oxapay/webhook`,
+            callback_url: `${backendUrl}/api/oxapay/webhook`,
             description: `PipXcapital Withdrawal - ${transaction._id}`
           }
 
@@ -540,7 +540,7 @@ router.put('/transaction/:id/approve', async (req, res) => {
             amount: transaction.amount,
             currency: transaction.cryptoCurrency || 'USDT',
             network: transaction.cryptoNetwork,
-            callback_url: `${backendUrl}/oxapay/webhook`,
+            callback_url: `${backendUrl}/api/oxapay/webhook`,
             description: `PipXcapital Withdrawal - ${transaction._id}`
           }
 

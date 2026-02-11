@@ -86,7 +86,7 @@ router.post('/create-payment', async (req, res) => {
     // Create OxaPay invoice
     const backendUrl = process.env.BACKEND_URL || 'https://pipxcapital.com/api'
     const frontendUrl = process.env.FRONTEND_URL || 'https://pipxcapital.com'
-    const callbackUrl = `${backendUrl}/oxapay/webhook`
+    const callbackUrl = `${backendUrl}/api/oxapay/webhook`
     const returnUrl = `${frontendUrl}/wallet?deposit=success`
 
     const invoiceData = {
@@ -339,7 +339,7 @@ router.post('/create-payout', async (req, res) => {
       amount: transaction.amount,
       currency: currency || transaction.cryptoCurrency || 'USDT',
       network: network || transaction.cryptoNetwork,
-      callback_url: `${backendUrl}/oxapay/webhook`,
+      callback_url: `${backendUrl}/api/oxapay/webhook`,
       description: `PipXcapital Withdrawal - ${transaction._id}`
     }
 
