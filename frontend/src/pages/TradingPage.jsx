@@ -1438,13 +1438,6 @@ const TradingPage = () => {
                         </div>
                         <div className={`text-[9px] ${isDarkMode ? 'text-gray-600' : 'text-gray-500'}`}>Bid</div>
                       </div>
-                      <div className={`px-1.5 py-0.5 rounded text-[10px] font-medium min-w-[28px] text-center mx-2 ${isDarkMode ? 'bg-[#2a2a2a] text-cyan-400' : 'bg-blue-100 text-blue-600'}`}>
-                        {inst.spread > 0 ? (
-                          inst.symbol.includes('JPY') ? (inst.spread * 100).toFixed(1) :
-                          inst.bid > 100 ? inst.spread.toFixed(2) :
-                          (inst.spread * 10000).toFixed(1)
-                        ) : '-'}
-                      </div>
                       <div className="text-right w-14">
                         <div className="text-green-500 text-xs font-mono">
                           {inst.ask > 0 ? inst.ask.toFixed(inst.ask > 100 ? 2 : 5) : '...'}
@@ -2053,10 +2046,6 @@ const TradingPage = () => {
                   {/* Trading Charges */}
                   <div className={`rounded p-3 mb-3 ${isDarkMode ? 'bg-[#1a1a1a]' : 'bg-gray-50 border border-gray-200'}`}>
                     <div className={`text-xs font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Trading Charges</div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-400">Spread</span>
-                      <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>10 pips</span>
-                    </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-400">Commission</span>
                       <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>$0.10 ($10/lot)</span>
@@ -2226,10 +2215,6 @@ const TradingPage = () => {
                   {/* Trading Charges */}
                   <div className={`rounded p-3 mb-3 ${isDarkMode ? 'bg-[#1a1a1a]' : 'bg-gray-50 border border-gray-200'}`}>
                     <div className={`text-xs font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Trading Charges</div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-400">Spread</span>
-                      <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>10 pips</span>
-                    </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-400">Commission</span>
                       <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>$0.10 ($10/lot)</span>

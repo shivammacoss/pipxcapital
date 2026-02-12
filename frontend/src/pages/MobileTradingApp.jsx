@@ -748,7 +748,7 @@ const MobileTradingApp = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-white">{prices.bid?.toFixed(inst.category === 'Forex' ? 5 : 2) || '-'}</p>
-                  <p className="text-gray-500 text-xs">Spread: {((prices.ask - prices.bid) * (inst.category === 'Forex' ? 10000 : 1)).toFixed(1)}</p>
+                  <p className="text-green-500 text-xs">{prices.ask?.toFixed(inst.category === 'Forex' ? 5 : 2) || '-'}</p>
                 </div>
               </button>
             )
@@ -1463,13 +1463,6 @@ const MobileTradingApp = () => {
                 </button>
               </div>
 
-              {/* Prices Info */}
-              <div className="flex items-center justify-center mb-4 text-xs">
-                <span className="text-gray-500">Spread: </span>
-                <span className="text-white ml-1">
-                  {((getPrice(selectedInstrument.symbol).ask - getPrice(selectedInstrument.symbol).bid) * (selectedInstrument.category === 'Forex' ? 10000 : 1)).toFixed(1)} pips
-                </span>
-              </div>
 
               {/* Order Type */}
               <div className="flex gap-2 mb-4">
