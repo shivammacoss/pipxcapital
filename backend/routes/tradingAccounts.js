@@ -350,7 +350,20 @@ router.put('/:id/archive', async (req, res) => {
       })
     }
 
-    // Check if account has balance - require withdrawal first
+    // Demo accounts skip balance check - archive directly (demo money is not real)
+    if (account.isDemo) {
+      account.status = 'Archived'
+      account.balance = 0
+      account.credit = 0
+      await account.save()
+      return res.json({ 
+        success: true, 
+        message: 'Demo account archived successfully',
+        account
+      })
+    }
+
+    // Check if account has balance - require withdrawal first (live accounts only)
     if (account.balance > 0 && !forceArchive) {
       return res.status(400).json({ 
         success: false, 
