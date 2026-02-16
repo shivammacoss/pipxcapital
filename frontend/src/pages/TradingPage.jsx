@@ -937,10 +937,15 @@ const TradingPage = () => {
     setTradeError('') // Clear any previous error
 
     try {
+      const tradeSymbol = selectedTradeForModify.symbol
+      const livePrice = livePrices[tradeSymbol]
+      const inst = instruments.find(i => i.symbol === tradeSymbol)
       const requestBody = {
         tradeId: selectedTradeForModify._id,
         sl: modifySL ? parseFloat(modifySL) : null,
-        tp: modifyTP ? parseFloat(modifyTP) : null
+        tp: modifyTP ? parseFloat(modifyTP) : null,
+        bid: livePrice?.bid || inst?.bid || null,
+        ask: livePrice?.ask || inst?.ask || null
       }
       console.log('Request body:', JSON.stringify(requestBody))
 

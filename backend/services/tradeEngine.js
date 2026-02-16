@@ -238,6 +238,26 @@ class TradeEngine {
       throw new Error('Invalid market prices. Please try again.')
     }
 
+    // Validate SL/TP levels (MT5 rules)
+    // BUY: SL must be below bid, TP must be above ask
+    // SELL: SL must be above ask, TP must be below bid
+    if (sl && sl > 0) {
+      if (side === 'BUY' && sl >= bid) {
+        throw new Error(`Invalid Stop Loss. For BUY orders, SL (${sl}) must be below current price (${bid}).`)
+      }
+      if (side === 'SELL' && sl <= ask) {
+        throw new Error(`Invalid Stop Loss. For SELL orders, SL (${sl}) must be above current price (${ask}).`)
+      }
+    }
+    if (tp && tp > 0) {
+      if (side === 'BUY' && tp <= ask) {
+        throw new Error(`Invalid Take Profit. For BUY orders, TP (${tp}) must be above current price (${ask}).`)
+      }
+      if (side === 'SELL' && tp >= bid) {
+        throw new Error(`Invalid Take Profit. For SELL orders, TP (${tp}) must be below current price (${bid}).`)
+      }
+    }
+
     // Get charges for this trade
     const charges = await Charges.getChargesForTrade(userId, symbol, segment, account.accountTypeId?._id)
     
@@ -440,10 +460,31 @@ class TradeEngine {
   }
 
   // Modify trade SL/TP
-  async modifyTrade(tradeId, sl = null, tp = null, adminId = null) {
+  async modifyTrade(tradeId, sl = null, tp = null, adminId = null, currentBid = null, currentAsk = null) {
     const trade = await Trade.findById(tradeId)
     if (!trade) throw new Error('Trade not found')
     if (trade.status !== 'OPEN') throw new Error('Trade is not open')
+
+    // Validate SL/TP levels against current market prices (MT5 rules)
+    // Only validate if current prices are provided (user-initiated modify)
+    if (currentBid && currentAsk) {
+      if (sl && sl > 0) {
+        if (trade.side === 'BUY' && sl >= currentBid) {
+          throw new Error(`Invalid Stop Loss. For BUY orders, SL (${sl}) must be below current price (${currentBid}).`)
+        }
+        if (trade.side === 'SELL' && sl <= currentAsk) {
+          throw new Error(`Invalid Stop Loss. For SELL orders, SL (${sl}) must be above current price (${currentAsk}).`)
+        }
+      }
+      if (tp && tp > 0) {
+        if (trade.side === 'BUY' && tp <= currentAsk) {
+          throw new Error(`Invalid Take Profit. For BUY orders, TP (${tp}) must be above current price (${currentAsk}).`)
+        }
+        if (trade.side === 'SELL' && tp >= currentBid) {
+          throw new Error(`Invalid Take Profit. For SELL orders, TP (${tp}) must be below current price (${currentBid}).`)
+        }
+      }
+    }
 
     const previousValue = { stopLoss: trade.stopLoss, takeProfit: trade.takeProfit }
 
