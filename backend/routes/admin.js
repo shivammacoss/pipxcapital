@@ -643,4 +643,28 @@ router.put('/password-reset-requests/:id/process', async (req, res) => {
   }
 })
 
+// GET /api/admin/logs - Get admin action logs with optional filtering
+router.get('/logs', async (req, res) => {
+  try {
+    const { actions, limit = 50 } = req.query
+    const AdminLog = (await import('../models/AdminLog.js')).default
+    
+    let query = {}
+    if (actions) {
+      const actionList = actions.split(',')
+      query.action = { $in: actionList }
+    }
+    
+    const logs = await AdminLog.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .populate('adminId', 'firstName lastName email')
+    
+    res.json({ success: true, logs })
+  } catch (error) {
+    console.error('Error fetching admin logs:', error)
+    res.status(500).json({ success: false, message: 'Error fetching logs', error: error.message })
+  }
+})
+
 export default router
