@@ -80,7 +80,7 @@ const AdminBonusManagement = () => {
   // Fetch bonus history (admin logs for credit actions)
   const fetchBonusHistory = async () => {
     try {
-      const res = await fetch(`${API_URL}/admin/logs?actions=ADD_CREDIT,REMOVE_CREDIT&limit=50`)
+      const res = await fetch(`${API_URL}/admin/logs?actions=ADD_CREDIT,REMOVE_CREDIT,ADD_WALLET_BONUS,DEDUCT_WALLET_BONUS&limit=50`)
       const data = await res.json()
       if (data.success) {
         setBonusHistory(data.logs || [])
@@ -90,13 +90,31 @@ const AdminBonusManagement = () => {
     }
   }
 
+  // Fetch user's wallet info
+  const [userWallet, setUserWallet] = useState(null)
+  
+  const fetchUserWallet = async (userId) => {
+    try {
+      const res = await fetch(`${API_URL}/wallet/${userId}`)
+      const data = await res.json()
+      if (data.success || data.wallet) {
+        setUserWallet(data.wallet || data)
+      }
+    } catch (error) {
+      console.error('Error fetching user wallet:', error)
+      setUserWallet(null)
+    }
+  }
+
   // Handle user selection
   const handleSelectUser = (user) => {
     setSelectedUser(user)
     setSearchResults([])
     setUserSearch('')
     setSelectedAccount(null)
+    setUserWallet(null)
     fetchUserAccounts(user._id)
+    fetchUserWallet(user._id)
   }
 
   // Submit manual bonus
@@ -110,31 +128,63 @@ const AdminBonusManagement = () => {
     setManualBonusMessage({ type: '', text: '' })
 
     try {
-      const endpoint = bonusAction === 'add' ? 'add-credit' : 'remove-credit'
       const adminData = JSON.parse(localStorage.getItem('adminUser') || '{}')
+      let res, data
       
-      const res = await fetch(`${API_URL}/admin/trading-account/${selectedAccount._id}/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: parseFloat(bonusAmount),
-          reason: bonusReason || `Manual ${bonusAction === 'add' ? 'bonus added' : 'bonus deducted'} by admin`,
-          adminId: adminData._id
+      // Check if adding to wallet or trading account
+      if (selectedAccount.type === 'wallet') {
+        // Add/Deduct from user's wallet
+        res = await fetch(`${API_URL}/admin/user/${selectedUser._id}/wallet-bonus`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: parseFloat(bonusAmount),
+            action: bonusAction,
+            reason: bonusReason || `Manual ${bonusAction === 'add' ? 'bonus added' : 'bonus deducted'} by admin`,
+            adminId: adminData._id
+          })
         })
-      })
-
-      const data = await res.json()
-      if (data.success || data.message?.includes('successfully')) {
-        setManualBonusMessage({ 
-          type: 'success', 
-          text: `Successfully ${bonusAction === 'add' ? 'added' : 'deducted'} $${bonusAmount} ${bonusAction === 'add' ? 'to' : 'from'} account ${selectedAccount.accountId}` 
-        })
-        setBonusAmount('')
-        setBonusReason('')
-        fetchUserAccounts(selectedUser._id)
-        fetchBonusHistory()
+        data = await res.json()
+        
+        if (data.success) {
+          setManualBonusMessage({ 
+            type: 'success', 
+            text: `Successfully ${bonusAction === 'add' ? 'added' : 'deducted'} $${bonusAmount} ${bonusAction === 'add' ? 'to' : 'from'} wallet bonus (non-withdrawable)` 
+          })
+          setBonusAmount('')
+          setBonusReason('')
+          // Refresh wallet data to show updated bonus balance
+          fetchUserWallet(selectedUser._id)
+          fetchBonusHistory()
+        } else {
+          setManualBonusMessage({ type: 'error', text: data.message || 'Operation failed' })
+        }
       } else {
-        setManualBonusMessage({ type: 'error', text: data.message || 'Operation failed' })
+        // Add/Deduct from trading account credit
+        const endpoint = bonusAction === 'add' ? 'add-credit' : 'remove-credit'
+        res = await fetch(`${API_URL}/admin/trading-account/${selectedAccount._id}/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: parseFloat(bonusAmount),
+            reason: bonusReason || `Manual ${bonusAction === 'add' ? 'bonus added' : 'bonus deducted'} by admin`,
+            adminId: adminData._id
+          })
+        })
+        data = await res.json()
+        
+        if (data.success || data.message?.includes('successfully')) {
+          setManualBonusMessage({ 
+            type: 'success', 
+            text: `Successfully ${bonusAction === 'add' ? 'added' : 'deducted'} $${bonusAmount} ${bonusAction === 'add' ? 'to' : 'from'} account ${selectedAccount.accountId}` 
+          })
+          setBonusAmount('')
+          setBonusReason('')
+          fetchUserAccounts(selectedUser._id)
+          fetchBonusHistory()
+        } else {
+          setManualBonusMessage({ type: 'error', text: data.message || 'Operation failed' })
+        }
       }
     } catch (error) {
       console.error('Error processing manual bonus:', error)
@@ -511,17 +561,69 @@ const AdminBonusManagement = () => {
               </div>
             )}
 
-            {/* Trading Accounts */}
-            {selectedUser && userAccounts.length > 0 && (
+            {/* No Trading Accounts - Add to Wallet */}
+            {selectedUser && userAccounts.filter(acc => acc.status === 'Active').length === 0 && (
               <div className="mb-4">
-                <label className="block text-gray-400 text-sm mb-2">Select Trading Account</label>
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mb-4">
+                  <p className="text-yellow-400 text-sm">
+                    This user has no active trading accounts. Bonus will be added to their <strong>Wallet Bonus Balance</strong> (non-withdrawable).
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedAccount({ _id: 'wallet', type: 'wallet' })}
+                  className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                    selectedAccount?.type === 'wallet'
+                      ? 'border-accent-green bg-accent-green/10'
+                      : 'border-gray-600 bg-dark-700 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-medium">💰 User Wallet</p>
+                      <p className="text-gray-400 text-sm">Add bonus (non-withdrawable)</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-white">Balance: ${userWallet?.balance?.toFixed(2) || '0.00'}</p>
+                      <p className="text-yellow-500 text-sm">Bonus: ${userWallet?.bonusBalance?.toFixed(2) || '0.00'}</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* Trading Accounts */}
+            {selectedUser && userAccounts.filter(acc => acc.status === 'Active').length > 0 && (
+              <div className="mb-4">
+                <label className="block text-gray-400 text-sm mb-2">Select Trading Account (or Wallet)</label>
                 <div className="space-y-2">
+                  {/* Wallet Option */}
+                  <button
+                    onClick={() => setSelectedAccount({ _id: 'wallet', type: 'wallet' })}
+                    className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                      selectedAccount?.type === 'wallet'
+                        ? 'border-accent-green bg-accent-green/10'
+                        : 'border-gray-600 bg-dark-700 hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white font-medium">💰 User Wallet</p>
+                        <p className="text-gray-400 text-sm">Add bonus (non-withdrawable)</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-white">Balance: ${userWallet?.balance?.toFixed(2) || '0.00'}</p>
+                        <p className="text-yellow-500 text-sm">Bonus: ${userWallet?.bonusBalance?.toFixed(2) || '0.00'}</p>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Trading Accounts */}
                   {userAccounts.filter(acc => acc.status === 'Active').map((account) => (
                     <button
                       key={account._id}
                       onClick={() => setSelectedAccount(account)}
                       className={`w-full p-3 rounded-lg border text-left transition-colors ${
-                        selectedAccount?._id === account._id
+                        selectedAccount?._id === account._id && selectedAccount?.type !== 'wallet'
                           ? 'border-accent-green bg-accent-green/10'
                           : 'border-gray-600 bg-dark-700 hover:border-gray-500'
                       }`}
@@ -529,7 +631,7 @@ const AdminBonusManagement = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-white font-medium">{account.accountId}</p>
-                          <p className="text-gray-400 text-sm">{account.accountTypeId?.name || 'Standard'}</p>
+                          <p className="text-gray-400 text-sm">{account.accountTypeId?.name || 'Standard'} (Credit - non-withdrawable)</p>
                         </div>
                         <div className="text-right">
                           <p className="text-white">Balance: ${account.balance?.toFixed(2)}</p>
@@ -630,26 +732,39 @@ const AdminBonusManagement = () => {
               {bonusHistory.length === 0 ? (
                 <p className="text-gray-400 text-center py-4">No bonus history found</p>
               ) : (
-                bonusHistory.map((log) => (
-                  <div key={log._id} className="p-3 bg-dark-700 rounded-lg border border-gray-600">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        log.action === 'ADD_CREDIT' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {log.action === 'ADD_CREDIT' ? '+ Added' : '- Deducted'}
-                      </span>
-                      <span className="text-gray-400 text-xs">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </span>
+                bonusHistory.map((log) => {
+                  const isAdd = log.action === 'ADD_CREDIT' || log.action === 'ADD_WALLET_BONUS'
+                  const isWallet = log.action === 'ADD_WALLET_BONUS' || log.action === 'DEDUCT_WALLET_BONUS'
+                  const amount = isWallet 
+                    ? Math.abs((log.newValue?.bonusBalance || log.newValue?.walletBalance || 0) - (log.previousValue?.bonusBalance || log.previousValue?.walletBalance || 0))
+                    : Math.abs((log.newValue?.credit || 0) - (log.previousValue?.credit || 0))
+                  
+                  return (
+                    <div key={log._id} className="p-3 bg-dark-700 rounded-lg border border-gray-600">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            isAdd ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {isAdd ? '+ Added' : '- Deducted'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-xs ${
+                            isWallet ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'
+                          }`}>
+                            {isWallet ? 'Wallet' : 'Credit'}
+                          </span>
+                        </div>
+                        <span className="text-gray-400 text-xs">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-white text-sm">${amount.toFixed(2)}</p>
+                      {log.reason && (
+                        <p className="text-gray-400 text-xs mt-1">{log.reason}</p>
+                      )}
                     </div>
-                    <p className="text-white text-sm">
-                      ${Math.abs((log.newValue?.credit || 0) - (log.previousValue?.credit || 0)).toFixed(2)}
-                    </p>
-                    {log.reason && (
-                      <p className="text-gray-400 text-xs mt-1">{log.reason}</p>
-                    )}
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>

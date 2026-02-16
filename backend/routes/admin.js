@@ -643,6 +643,85 @@ router.put('/password-reset-requests/:id/process', async (req, res) => {
   }
 })
 
+// POST /api/admin/user/:id/wallet-bonus - Add/Deduct bonus from user's wallet (non-withdrawable)
+router.post('/user/:id/wallet-bonus', async (req, res) => {
+  try {
+    const { amount, action, reason, adminId } = req.body
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid amount' })
+    }
+    if (!['add', 'deduct'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Invalid action. Use "add" or "deduct"' })
+    }
+    
+    const user = await User.findById(req.params.id)
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+    
+    // Get or create wallet for user
+    const Wallet = (await import('../models/Wallet.js')).default
+    let wallet = await Wallet.findOne({ userId: user._id })
+    if (!wallet) {
+      wallet = await Wallet.create({ userId: user._id, balance: 0, bonusBalance: 0 })
+    }
+    
+    const previousBonus = wallet.bonusBalance || 0
+    
+    if (action === 'add') {
+      wallet.bonusBalance = previousBonus + parseFloat(amount)
+    } else {
+      if (amount > previousBonus) {
+        return res.status(400).json({ success: false, message: 'Cannot deduct more than available bonus balance' })
+      }
+      wallet.bonusBalance = previousBonus - parseFloat(amount)
+    }
+    
+    await wallet.save()
+    
+    // Create transaction record
+    await Transaction.create({
+      userId: user._id,
+      walletId: wallet._id,
+      type: action === 'add' ? 'Bonus' : 'Bonus_Deduction',
+      amount: parseFloat(amount),
+      paymentMethod: 'System',
+      status: 'Completed',
+      transactionRef: `BONUS${Date.now()}`,
+      notes: reason || `Admin ${action === 'add' ? 'added' : 'deducted'} bonus (non-withdrawable)`
+    })
+    
+    // Log the action
+    if (adminId) {
+      try {
+        const AdminLog = (await import('../models/AdminLog.js')).default
+        await AdminLog.create({
+          adminId,
+          action: action === 'add' ? 'ADD_WALLET_BONUS' : 'DEDUCT_WALLET_BONUS',
+          targetType: 'USER',
+          targetId: user._id,
+          previousValue: { bonusBalance: previousBonus },
+          newValue: { bonusBalance: wallet.bonusBalance },
+          reason: reason || `Wallet bonus ${action}`
+        })
+      } catch (logError) {
+        console.error('Error logging wallet bonus:', logError)
+      }
+    }
+    
+    res.json({ 
+      success: true,
+      message: `Wallet bonus ${action === 'add' ? 'added' : 'deducted'} successfully (non-withdrawable)`,
+      previousBonus,
+      newBonus: wallet.bonusBalance,
+      totalWallet: wallet.balance + wallet.bonusBalance
+    })
+  } catch (error) {
+    console.error('Error processing wallet bonus:', error)
+    res.status(500).json({ success: false, message: 'Error processing wallet bonus', error: error.message })
+  }
+})
+
 // GET /api/admin/logs - Get admin action logs with optional filtering
 router.get('/logs', async (req, res) => {
   try {

@@ -86,19 +86,61 @@ router.post('/', async (req, res) => {
       })
     }
 
+    // Auto-transfer pending bonus to this account's credit (only for live accounts)
+    let pendingBonusTransferred = 0
+    if (!accountType.isDemo) {
+      try {
+        const Wallet = (await import('../models/Wallet.js')).default
+        const wallet = await Wallet.findOne({ userId })
+        if (wallet && wallet.pendingBonus > 0) {
+          pendingBonusTransferred = wallet.pendingBonus
+          tradingAccount.credit = (tradingAccount.credit || 0) + pendingBonusTransferred
+          await tradingAccount.save()
+          
+          wallet.pendingBonus = 0
+          await wallet.save()
+          
+          // Log the bonus transfer
+          await Transaction.create({
+            userId,
+            type: 'Bonus',
+            amount: pendingBonusTransferred,
+            paymentMethod: 'System',
+            tradingAccountId: tradingAccount._id,
+            tradingAccountName: tradingAccount.accountId,
+            status: 'Completed',
+            transactionRef: `BONUS_TRANSFER${Date.now()}`,
+            notes: `Pending bonus transferred to trading account ${tradingAccount.accountId} as credit`
+          })
+          
+          console.log(`[CREATE ACCOUNT] Transferred $${pendingBonusTransferred} pending bonus to account ${tradingAccount.accountId} credit`)
+        }
+      } catch (bonusError) {
+        console.error('[CREATE ACCOUNT] Error transferring pending bonus:', bonusError)
+      }
+    }
+
+    let message = accountType.isDemo 
+      ? `Demo account created with $${initialBalance} non-refundable balance` 
+      : 'Trading account created successfully'
+    
+    if (pendingBonusTransferred > 0) {
+      message += `. $${pendingBonusTransferred.toFixed(2)} bonus credit added!`
+    }
+
     res.status(201).json({ 
       success: true,
-      message: accountType.isDemo 
-        ? `Demo account created with $${initialBalance} non-refundable balance` 
-        : 'Trading account created successfully', 
+      message,
       account: {
         _id: tradingAccount._id,
         accountId: tradingAccount.accountId,
         balance: tradingAccount.balance,
+        credit: tradingAccount.credit,
         leverage: tradingAccount.leverage,
         status: tradingAccount.status,
         isDemo: accountType.isDemo || false
-      }
+      },
+      pendingBonusTransferred
     })
   } catch (error) {
     console.error('[CREATE ACCOUNT] Error:', error.message)

@@ -29,7 +29,7 @@ router.get('/:userId', async (req, res) => {
 // POST /api/wallet/deposit - Create deposit request
 router.post('/deposit', async (req, res) => {
   try {
-    const { userId, amount, paymentMethod, transactionRef, screenshot } = req.body
+    const { userId, amount, paymentMethod, transactionRef, screenshot, bonusTradingAccountId } = req.body
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: 'Invalid amount' })
@@ -105,7 +105,8 @@ router.post('/deposit', async (req, res) => {
       status: 'Pending',
       bonusAmount,
       totalAmount: amount + bonusAmount,
-      bonusId: applicableBonus?._id || null
+      bonusId: applicableBonus?._id || null,
+      bonusTradingAccountId: bonusTradingAccountId || null
     })
     await transaction.save()
 
@@ -349,10 +350,33 @@ router.put('/admin/approve/:id', async (req, res) => {
     const wallet = await Wallet.findById(transaction.walletId)
 
     if (transaction.type === 'Deposit') {
-      // Add deposit amount + bonus to wallet balance
-      const totalToAdd = transaction.amount + (transaction.bonusAmount || 0)
-      console.log('Approving deposit - amount:', transaction.amount, 'bonus:', transaction.bonusAmount, 'totalToAdd:', totalToAdd)
-      wallet.balance += totalToAdd
+      // Add deposit amount to wallet balance (withdrawable)
+      const depositAmount = transaction.amount
+      const bonusAmount = transaction.bonusAmount || 0
+      console.log('Approving deposit - amount:', depositAmount, 'bonus:', bonusAmount, 'bonusTradingAccountId:', transaction.bonusTradingAccountId)
+      wallet.balance += depositAmount
+      
+      // Add bonus to trading account credit if specified, otherwise to wallet bonusBalance
+      if (bonusAmount > 0) {
+        if (transaction.bonusTradingAccountId) {
+          // Add bonus to trading account credit (non-withdrawable)
+          const TradingAccount = (await import('../models/TradingAccount.js')).default
+          const tradingAccount = await TradingAccount.findById(transaction.bonusTradingAccountId)
+          if (tradingAccount) {
+            tradingAccount.credit = (tradingAccount.credit || 0) + bonusAmount
+            await tradingAccount.save()
+            console.log(`Bonus $${bonusAmount} added to trading account ${tradingAccount.accountId} credit`)
+          } else {
+            // Fallback to wallet bonusBalance if account not found
+            wallet.bonusBalance = (wallet.bonusBalance || 0) + bonusAmount
+            console.log(`Trading account not found, bonus added to wallet bonusBalance`)
+          }
+        } else {
+          // No trading account selected, add to wallet pendingBonus (will auto-transfer when account created)
+          wallet.pendingBonus = (wallet.pendingBonus || 0) + bonusAmount
+          console.log(`No trading account selected, bonus added to wallet pendingBonus`)
+        }
+      }
       if (wallet.pendingDeposits) wallet.pendingDeposits -= transaction.amount
     } else {
       if (wallet.pendingWithdrawals) wallet.pendingWithdrawals -= transaction.amount
@@ -516,10 +540,33 @@ router.put('/transaction/:id/approve', async (req, res) => {
     const wallet = await Wallet.findById(transaction.walletId)
 
     if (transaction.type === 'Deposit') {
-      // Add deposit amount + bonus to wallet balance
-      const totalToAdd = transaction.amount + (transaction.bonusAmount || 0)
-      console.log('Approving deposit - amount:', transaction.amount, 'bonus:', transaction.bonusAmount, 'totalToAdd:', totalToAdd)
-      wallet.balance += totalToAdd
+      // Add deposit amount to wallet balance (withdrawable)
+      const depositAmount = transaction.amount
+      const bonusAmount = transaction.bonusAmount || 0
+      console.log('Approving deposit - amount:', depositAmount, 'bonus:', bonusAmount, 'bonusTradingAccountId:', transaction.bonusTradingAccountId)
+      wallet.balance += depositAmount
+      
+      // Add bonus to trading account credit if specified, otherwise to wallet bonusBalance
+      if (bonusAmount > 0) {
+        if (transaction.bonusTradingAccountId) {
+          // Add bonus to trading account credit (non-withdrawable)
+          const TradingAccount = (await import('../models/TradingAccount.js')).default
+          const tradingAccount = await TradingAccount.findById(transaction.bonusTradingAccountId)
+          if (tradingAccount) {
+            tradingAccount.credit = (tradingAccount.credit || 0) + bonusAmount
+            await tradingAccount.save()
+            console.log(`Bonus $${bonusAmount} added to trading account ${tradingAccount.accountId} credit`)
+          } else {
+            // Fallback to wallet bonusBalance if account not found
+            wallet.bonusBalance = (wallet.bonusBalance || 0) + bonusAmount
+            console.log(`Trading account not found, bonus added to wallet bonusBalance`)
+          }
+        } else {
+          // No trading account selected, add to wallet pendingBonus (will auto-transfer when account created)
+          wallet.pendingBonus = (wallet.pendingBonus || 0) + bonusAmount
+          console.log(`No trading account selected, bonus added to wallet pendingBonus`)
+        }
+      }
       wallet.pendingDeposits -= transaction.amount
     } else {
       wallet.pendingWithdrawals -= transaction.amount

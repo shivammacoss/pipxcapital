@@ -73,6 +73,8 @@ const WalletPage = () => {
   const [cryptoWithdrawCurrency, setCryptoWithdrawCurrency] = useState('USDT')
   const [cryptoWithdrawNetwork, setCryptoWithdrawNetwork] = useState('TRC20')
   const [withdrawMethod, setWithdrawMethod] = useState('bank')
+  const [tradingAccounts, setTradingAccounts] = useState([])
+  const [selectedBonusAccount, setSelectedBonusAccount] = useState(null)
   const fileInputRef = useRef(null)
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
@@ -138,11 +140,29 @@ const WalletPage = () => {
       fetchWallet()
       fetchTransactions()
       fetchUserBankAccounts()
+      fetchTradingAccounts()
     }
     fetchPaymentMethods()
     fetchCurrencies()
     fetchOxapayStatus()
   }, [user._id])
+
+  const fetchTradingAccounts = async () => {
+    try {
+      const res = await fetch(`${API_URL}/trading-accounts/user/${user._id}`)
+      const data = await res.json()
+      if (data.success) {
+        const activeAccounts = (data.accounts || []).filter(acc => acc.status === 'Active' && !acc.isDemo)
+        setTradingAccounts(activeAccounts)
+        // Auto-select if only one account
+        if (activeAccounts.length === 1) {
+          setSelectedBonusAccount(activeAccounts[0])
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching trading accounts:', error)
+    }
+  }
 
   const fetchOxapayStatus = async () => {
     try {
@@ -444,7 +464,8 @@ const WalletPage = () => {
           markup: selectedCurrency?.markup || 0,
           paymentMethod: selectedPaymentMethod.type,
           transactionRef,
-          screenshot: screenshotUrl || screenshotPreview
+          screenshot: screenshotUrl || screenshotPreview,
+          bonusTradingAccountId: selectedBonusAccount?._id || null
         })
       })
       const data = await res.json()
@@ -649,7 +670,14 @@ const WalletPage = () => {
               <div>
                 <p className={`text-sm mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>Available Balance</p>
                 <p className={`font-bold ${isMobile ? 'text-2xl' : 'text-4xl'} ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>${wallet?.balance?.toLocaleString() || '0.00'}</p>
-                <div className={`flex ${isMobile ? 'gap-4' : 'gap-6'} mt-3`}>
+                <div className={`flex flex-wrap ${isMobile ? 'gap-4' : 'gap-6'} mt-3`}>
+                  {wallet?.pendingBonus > 0 && (
+                    <div>
+                      <p className="text-gray-500 text-xs">Pending Bonus</p>
+                      <p className="text-purple-500 font-medium text-sm">${wallet?.pendingBonus?.toLocaleString() || '0.00'}</p>
+                      <p className="text-gray-600 text-[10px]">Will transfer to first account</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-gray-500 text-xs">Pending Deposits</p>
                     <p className="text-yellow-500 font-medium text-sm">${wallet?.pendingDeposits?.toLocaleString() || '0.00'}</p>
@@ -948,6 +976,49 @@ const WalletPage = () => {
                 </div>
               )}
 
+              {/* Trading Account Selector for Bonus */}
+              {bonusInfo && bonusInfo.bonusAmount > 0 && tradingAccounts.length > 0 && (
+                <div className="mt-3">
+                  <label className="block text-gray-400 text-sm mb-2">
+                    Select Trading Account for Bonus Credit
+                  </label>
+                  <div className="space-y-2">
+                    {tradingAccounts.map((account) => (
+                      <button
+                        key={account._id}
+                        type="button"
+                        onClick={() => setSelectedBonusAccount(account)}
+                        className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                          selectedBonusAccount?._id === account._id
+                            ? 'border-accent-green bg-accent-green/10'
+                            : 'border-gray-700 bg-dark-700 hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-white font-medium">{account.accountId}</p>
+                            <p className="text-gray-400 text-xs">{account.accountTypeId?.name || 'Standard'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-gray-400 text-xs">Credit: ${account.credit?.toFixed(2) || '0.00'}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-gray-500 text-xs mt-1">Bonus will be added as non-withdrawable credit</p>
+                </div>
+              )}
+
+              {/* Warning if no trading accounts */}
+              {bonusInfo && bonusInfo.bonusAmount > 0 && tradingAccounts.length === 0 && (
+                <div className="mt-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/30">
+                  <p className="text-purple-400 text-sm">
+                    <strong>Pending Bonus:</strong> You have no active trading accounts. Your bonus will be saved and automatically transferred as credit when you create your first trading account.
+                  </p>
+                </div>
+              )}
+
                           </div>
 
             <div className="mb-4">
@@ -1166,8 +1237,11 @@ const WalletPage = () => {
             </div>
 
             <div className={`mb-2 p-3 rounded-lg ${isDarkMode ? 'bg-dark-700' : 'bg-gray-100'}`}>
-              <p className="text-gray-400 text-sm">Available Balance</p>
+              <p className="text-gray-400 text-sm">Withdrawable Balance</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>${wallet?.balance?.toLocaleString() || '0.00'}</p>
+              {wallet?.bonusBalance > 0 && (
+                <p className="text-gray-500 text-xs mt-1">Bonus: ${wallet?.bonusBalance?.toLocaleString()} (non-withdrawable)</p>
+              )}
             </div>
 
             {/* Withdrawal Method Selector */}

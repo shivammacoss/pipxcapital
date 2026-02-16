@@ -12,7 +12,7 @@ const transactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['Deposit', 'Withdrawal', 'Transfer_To_Account', 'Transfer_From_Account', 'Account_Transfer_Out', 'Account_Transfer_In', 'Demo_Credit', 'Demo_Reset', 'Challenge_Purchase', 'Admin_Fund_Add', 'Admin_Credit_Add', 'Admin_Credit_Remove'],
+    enum: ['Deposit', 'Withdrawal', 'Transfer_To_Account', 'Transfer_From_Account', 'Account_Transfer_Out', 'Account_Transfer_In', 'Demo_Credit', 'Demo_Reset', 'Challenge_Purchase', 'Admin_Fund_Add', 'Admin_Credit_Add', 'Admin_Credit_Remove', 'Bonus', 'Bonus_Deduction'],
     required: true
   },
   amount: {
@@ -122,6 +122,10 @@ const transactionSchema = new mongoose.Schema({
   bonusId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bonus'
+  },
+  bonusTradingAccountId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TradingAccount'
   }
 }, { timestamps: true })
 
