@@ -49,10 +49,25 @@ router.get('/dashboard-stats', async (req, res) => {
   }
 })
 
-// GET /api/admin/users - Get all users
+// GET /api/admin/users - Get all users (with optional search)
 router.get('/users', async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 })
+    const { search } = req.query
+    let query = {}
+    
+    if (search && search.trim().length > 0) {
+      const searchRegex = new RegExp(search.trim(), 'i')
+      query = {
+        $or: [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+          { phone: searchRegex }
+        ]
+      }
+    }
+    
+    const users = await User.find(query).select('-password').sort({ createdAt: -1 })
     res.json({
       success: true,
       message: 'Users fetched successfully',
