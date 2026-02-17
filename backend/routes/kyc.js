@@ -45,11 +45,23 @@ const kycUpload = multer({
 })
 
 // POST /api/kyc/submit-files - Submit KYC documents via file upload (for mobile app)
-router.post('/submit-files', kycUpload.fields([
-  { name: 'frontImage', maxCount: 1 },
-  { name: 'backImage', maxCount: 1 },
-  { name: 'selfieImage', maxCount: 1 }
-]), async (req, res) => {
+router.post('/submit-files', (req, res, next) => {
+  const upload = kycUpload.fields([
+    { name: 'frontImage', maxCount: 1 },
+    { name: 'backImage', maxCount: 1 },
+    { name: 'selfieImage', maxCount: 1 }
+  ])
+  upload(req, res, (err) => {
+    if (err) {
+      console.error('[KYC] Multer error:', err.message)
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload error'
+      })
+    }
+    next()
+  })
+}, async (req, res) => {
   try {
     const { userId, documentType, documentNumber } = req.body
     const files = req.files
