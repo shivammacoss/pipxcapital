@@ -119,8 +119,8 @@ const OrderBook = () => {
           allOpen = [...allOpen, ...openData.trades.map(t => ({ ...t, accountName: account.accountId }))]
         }
 
-        // Fetch closed trades (history)
-        const historyRes = await fetch(`${API_URL}/trade/history/${account._id}`)
+        // Fetch closed trades (history) - get all trades (no limit)
+        const historyRes = await fetch(`${API_URL}/trade/history/${account._id}?limit=0`)
         const historyData = await historyRes.json()
         if (historyData.success && historyData.trades) {
           allClosed = [...allClosed, ...historyData.trades.map(t => ({ ...t, accountName: account.accountId }))]

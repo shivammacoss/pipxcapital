@@ -458,13 +458,21 @@ router.get('/history/:tradingAccountId', async (req, res) => {
     const { tradingAccountId } = req.params
     const { limit = 50, offset = 0 } = req.query
 
-    const trades = await Trade.find({ 
+    // Build query - limit=0 means no limit (fetch all)
+    let query = Trade.find({ 
       tradingAccountId, 
       status: 'CLOSED' 
     })
       .sort({ closedAt: -1 })
       .skip(parseInt(offset))
-      .limit(parseInt(limit))
+    
+    // Only apply limit if it's greater than 0
+    const limitNum = parseInt(limit)
+    if (limitNum > 0) {
+      query = query.limit(limitNum)
+    }
+
+    const trades = await query
 
     const total = await Trade.countDocuments({ 
       tradingAccountId, 
