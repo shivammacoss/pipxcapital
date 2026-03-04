@@ -61,10 +61,20 @@ const AdminTradeManagement = () => {
   const [totalTrades, setTotalTrades] = useState(0)
   const tradesPerPage = 20
 
+  // Debounce search term
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
   useEffect(() => {
     fetchTrades()
     fetchUsers()
-  }, [filterStatus, currentPage])
+  }, [filterStatus, currentPage, debouncedSearch])
 
   // Fetch live prices for open trades via WebSocket for institutional-grade streaming
   useEffect(() => {
@@ -371,7 +381,8 @@ const AdminTradeManagement = () => {
     try {
       const offset = (currentPage - 1) * tradesPerPage
       const statusParam = filterStatus !== 'all' ? `&status=${filterStatus.toUpperCase()}` : ''
-      const res = await fetch(`${API_URL}/admin/trade/all?limit=${tradesPerPage}&offset=${offset}${statusParam}`)
+      const searchParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''
+      const res = await fetch(`${API_URL}/admin/trade/all?limit=${tradesPerPage}&offset=${offset}${statusParam}${searchParam}`)
       const data = await res.json()
       if (data.trades) {
         setTrades(data.trades)
@@ -404,13 +415,8 @@ const AdminTradeManagement = () => {
     }
   }
 
-  const filteredTrades = trades.filter(trade => {
-    const matchesSearch = trade.tradeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trade.symbol?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trade.userId?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trade.userId?.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
-  })
+  // Server-side search is now used, so just use trades directly
+  const filteredTrades = trades
 
   const getStatusIcon = (status) => {
     switch (status?.toUpperCase()) {
@@ -463,10 +469,13 @@ const AdminTradeManagement = () => {
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
                 type="text"
-                placeholder="Search trades..."
+                placeholder="Search by user name, email, phone..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-64 bg-dark-700 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-gray-600"
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="w-full sm:w-72 bg-dark-700 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-gray-600"
               />
             </div>
             <select

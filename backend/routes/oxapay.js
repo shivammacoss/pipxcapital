@@ -168,18 +168,28 @@ router.post('/webhook', async (req, res) => {
     const merchantApiKey = process.env.OXAPAY_MERCHANT_API_KEY
     const payoutApiKey = process.env.OXAPAY_PAYOUT_API_KEY
 
-    // Validate HMAC signature
+    // Validate HMAC signature - REQUIRED for security
     const hmacHeader = req.headers['hmac']
-    if (hmacHeader && merchantApiKey) {
-      const rawBody = JSON.stringify(req.body)
-      const merchantHmac = crypto.createHmac('sha512', merchantApiKey).update(rawBody).digest('hex')
-      const payoutHmac = payoutApiKey ? crypto.createHmac('sha512', payoutApiKey).update(rawBody).digest('hex') : ''
-
-      if (hmacHeader !== merchantHmac && hmacHeader !== payoutHmac) {
-        console.error('[OxaPay Webhook] Invalid HMAC signature')
-        return res.status(403).json({ message: 'Invalid signature' })
-      }
+    
+    // SECURITY: Reject requests without HMAC header
+    if (!hmacHeader) {
+      console.error('[OxaPay Webhook] SECURITY: Missing HMAC header - possible spoofing attempt')
+      console.error('[OxaPay Webhook] Request IP:', req.ip, 'Body:', JSON.stringify(req.body).substring(0, 200))
+      return res.status(403).json({ message: 'Missing HMAC signature' })
     }
+
+    // Validate HMAC against both merchant and payout keys
+    const rawBody = JSON.stringify(req.body)
+    const merchantHmac = merchantApiKey ? crypto.createHmac('sha512', merchantApiKey).update(rawBody).digest('hex') : ''
+    const payoutHmac = payoutApiKey ? crypto.createHmac('sha512', payoutApiKey).update(rawBody).digest('hex') : ''
+
+    if (hmacHeader !== merchantHmac && hmacHeader !== payoutHmac) {
+      console.error('[OxaPay Webhook] SECURITY: Invalid HMAC signature - possible spoofing attempt')
+      console.error('[OxaPay Webhook] Request IP:', req.ip, 'Expected merchant:', merchantHmac.substring(0, 20) + '...', 'Got:', hmacHeader.substring(0, 20) + '...')
+      return res.status(403).json({ message: 'Invalid signature' })
+    }
+    
+    console.log('[OxaPay Webhook] HMAC validated successfully')
 
     const { track_id, status, type, amount, order_id } = req.body
     console.log(`[OxaPay Webhook] track_id: ${track_id}, status: ${status}, type: ${type}, amount: ${amount}, order_id: ${order_id}`)
@@ -198,6 +208,20 @@ router.post('/webhook', async (req, res) => {
           return res.json({ status: 'ok' })
         }
 
+        // SECURITY: Verify track_id matches what we stored
+        const expectedTrackId = transaction.transactionRef?.replace('OXA-', '')
+        if (expectedTrackId && track_id && expectedTrackId !== String(track_id)) {
+          console.error(`[OxaPay Webhook] SECURITY: Track ID mismatch! Expected: ${expectedTrackId}, Got: ${track_id}`)
+          return res.status(403).json({ message: 'Track ID mismatch' })
+        }
+
+        // SECURITY: Verify amount matches (with small tolerance for fees)
+        const amountDiff = Math.abs(parseFloat(amount) - transaction.amount)
+        if (amount && amountDiff > transaction.amount * 0.05) { // Allow 5% tolerance for fees
+          console.error(`[OxaPay Webhook] SECURITY: Amount mismatch! Expected: ${transaction.amount}, Got: ${amount}`)
+          return res.status(403).json({ message: 'Amount mismatch' })
+        }
+
         // Auto-approve the deposit
         const wallet = await Wallet.findById(transaction.walletId)
         if (!wallet) {
@@ -205,8 +229,16 @@ router.post('/webhook', async (req, res) => {
           return res.json({ status: 'ok' })
         }
 
-        const totalToAdd = transaction.amount + (transaction.bonusAmount || 0)
-        wallet.balance += totalToAdd
+        // Add deposit amount to balance (withdrawable)
+        wallet.balance += transaction.amount
+        
+        // Add bonus to pendingBonus (non-withdrawable, will transfer to trading account credit)
+        const bonusAmount = transaction.bonusAmount || 0
+        if (bonusAmount > 0) {
+          wallet.pendingBonus = (wallet.pendingBonus || 0) + bonusAmount
+          console.log(`[OxaPay Webhook] Bonus $${bonusAmount} added to pendingBonus (non-withdrawable)`)
+        }
+        
         if (wallet.pendingDeposits) wallet.pendingDeposits -= transaction.amount
 
         transaction.status = 'Approved'

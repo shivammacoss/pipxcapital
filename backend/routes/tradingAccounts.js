@@ -194,7 +194,17 @@ router.post('/:id/transfer', async (req, res) => {
       await wallet.save()
     }
 
+    // SECURITY: Check if this is a demo account
+    const isDemo = account.isDemo || account.accountTypeId?.isDemo
+
     if (direction === 'deposit') {
+      // SECURITY: Prevent depositing real money to demo accounts
+      if (isDemo) {
+        return res.status(400).json({ 
+          message: 'Cannot deposit real funds to a demo account. Demo accounts use virtual money only.' 
+        })
+      }
+
       // Transfer from Main Wallet to Account Wallet
       if (wallet.balance < amount) {
         return res.status(400).json({ message: 'Insufficient wallet balance' })
@@ -234,9 +244,39 @@ router.post('/:id/transfer', async (req, res) => {
         accountBalance: account.balance
       })
     } else if (direction === 'withdraw') {
+      // SECURITY: Prevent withdrawing demo money to real wallet
+      if (isDemo) {
+        return res.status(400).json({ 
+          message: 'Cannot withdraw from a demo account. Demo accounts use virtual money only.' 
+        })
+      }
+
       // Transfer from Account Wallet to Main Wallet
-      if (account.balance < amount) {
-        return res.status(400).json({ message: 'Insufficient account balance' })
+      // SECURITY: Check for open trades and calculate free margin
+      const Trade = (await import('../models/Trade.js')).default
+      const openTrades = await Trade.find({
+        tradingAccountId: account._id,
+        status: 'OPEN'
+      })
+
+      // Calculate used margin from open trades
+      const usedMargin = openTrades.reduce((sum, trade) => sum + (trade.marginUsed || 0), 0)
+      
+      // Calculate floating PnL (simplified)
+      const floatingPnl = openTrades.reduce((sum, trade) => sum + (trade.floatingPnl || 0), 0)
+
+      // Free margin = Balance - Used Margin (credit is NOT withdrawable)
+      // Note: account.credit is bonus and should NEVER be withdrawn
+      const freeMargin = account.balance - usedMargin
+      
+      // Maximum withdrawable = minimum of (free margin, actual balance)
+      // This ensures credit cannot be withdrawn
+      const maxWithdrawable = Math.max(0, Math.min(freeMargin, account.balance))
+
+      if (amount > maxWithdrawable) {
+        return res.status(400).json({ 
+          message: `Insufficient withdrawable balance. Maximum: $${maxWithdrawable.toFixed(2)} (Balance: $${account.balance.toFixed(2)}, Used Margin: $${usedMargin.toFixed(2)}, Credit: $${(account.credit || 0).toFixed(2)} - not withdrawable)` 
+        })
       }
 
       account.balance -= amount
@@ -287,8 +327,8 @@ router.post('/account-transfer', async (req, res) => {
       return res.status(400).json({ message: 'Invalid transfer amount' })
     }
 
-    // Get source account
-    const fromAccount = await TradingAccount.findById(fromAccountId)
+    // Get source account with account type info
+    const fromAccount = await TradingAccount.findById(fromAccountId).populate('accountTypeId')
     if (!fromAccount) {
       return res.status(404).json({ message: 'Source account not found' })
     }
@@ -307,8 +347,8 @@ router.post('/account-transfer', async (req, res) => {
       return res.status(400).json({ message: 'Insufficient balance in source account' })
     }
 
-    // Get target account
-    const toAccount = await TradingAccount.findById(toAccountId)
+    // Get target account with account type info
+    const toAccount = await TradingAccount.findById(toAccountId).populate('accountTypeId')
     if (!toAccount) {
       return res.status(404).json({ message: 'Target account not found' })
     }
@@ -320,6 +360,16 @@ router.post('/account-transfer', async (req, res) => {
 
     if (toAccount.status !== 'Active') {
       return res.status(400).json({ message: 'Target account is not active' })
+    }
+
+    // SECURITY: Prevent demo <-> real account transfers
+    const fromIsDemo = fromAccount.isDemo || fromAccount.accountTypeId?.isDemo
+    const toIsDemo = toAccount.isDemo || toAccount.accountTypeId?.isDemo
+    
+    if (fromIsDemo !== toIsDemo) {
+      return res.status(400).json({ 
+        message: 'Cannot transfer between demo and real accounts. Transfers are only allowed between accounts of the same type.' 
+      })
     }
 
     // Perform transfer

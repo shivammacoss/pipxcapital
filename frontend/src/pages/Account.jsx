@@ -1418,12 +1418,19 @@ const Account = () => {
               </div>
             </div>
 
-            {/* To Account Selection */}
+            {/* To Account Selection - Only show same type accounts (demo to demo, real to real) */}
             <div className="mb-4">
               <label className="block text-gray-400 text-sm mb-2">To Account</label>
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {userAccounts
-                  .filter(acc => acc._id !== selectedAccount._id && acc.status === 'Active')
+                  .filter(acc => {
+                    if (acc._id === selectedAccount._id) return false
+                    if (acc.status !== 'Active') return false
+                    // Only show accounts of the same type (demo to demo, real to real)
+                    const sourceIsDemo = selectedAccount.isDemo || selectedAccount.accountTypeId?.isDemo
+                    const targetIsDemo = acc.isDemo || acc.accountTypeId?.isDemo
+                    return sourceIsDemo === targetIsDemo
+                  })
                   .map(acc => (
                     <button
                       key={acc._id}
@@ -1442,8 +1449,18 @@ const Account = () => {
                       <span className="text-gray-400 text-sm">${acc.balance.toLocaleString()}</span>
                     </button>
                   ))}
-                {userAccounts.filter(acc => acc._id !== selectedAccount._id && acc.status === 'Active').length === 0 && (
-                  <p className="text-gray-500 text-sm text-center py-2">No other accounts available</p>
+                {userAccounts.filter(acc => {
+                    if (acc._id === selectedAccount._id) return false
+                    if (acc.status !== 'Active') return false
+                    const sourceIsDemo = selectedAccount.isDemo || selectedAccount.accountTypeId?.isDemo
+                    const targetIsDemo = acc.isDemo || acc.accountTypeId?.isDemo
+                    return sourceIsDemo === targetIsDemo
+                  }).length === 0 && (
+                  <p className="text-gray-500 text-sm text-center py-2">
+                    {(selectedAccount.isDemo || selectedAccount.accountTypeId?.isDemo) 
+                      ? 'No other demo accounts available' 
+                      : 'No other live accounts available'}
+                  </p>
                 )}
               </div>
             </div>
