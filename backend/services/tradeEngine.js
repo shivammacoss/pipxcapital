@@ -327,7 +327,7 @@ class TradeEngine {
       segment,
       side,
       orderType,
-      quantity,
+      quantity: Math.round(quantity * 100) / 100,
       openPrice,
       stopLoss: sl,
       takeProfit: tp,

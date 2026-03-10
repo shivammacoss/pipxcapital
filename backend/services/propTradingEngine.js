@@ -317,7 +317,7 @@ class PropTradingEngine {
       segment: segment || 'Forex',
       side,
       orderType,
-      quantity,
+      quantity: Math.round(quantity * 100) / 100,
       openPrice,
       currentPrice: openPrice,
       marginUsed: marginRequired,

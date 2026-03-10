@@ -106,7 +106,7 @@ router.post('/open', async (req, res) => {
         segment: segment || 'Forex',
         side,
         orderType,
-        quantity: parseFloat(quantity),
+        quantity: Math.round(parseFloat(quantity) * 100) / 100,
         bid: parseFloat(bid),
         ask: parseFloat(ask),
         sl: sl ? parseFloat(sl) : null,
