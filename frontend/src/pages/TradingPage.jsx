@@ -837,20 +837,35 @@ const TradingPage = () => {
     }, 3000)
   }
 
-  // Close a trade
+  // Close a trade - fetch fresh prices from API to prevent stale price exploitation
   const closeTrade = async (tradeId) => {
     try {
       const trade = openTrades.find(t => t._id === tradeId)
       if (!trade) return
 
-      // Use livePrices first (real-time), fallback to instruments
-      const livePrice = livePrices[trade.symbol]
-      const instrument = instruments.find(i => i.symbol === trade.symbol) || selectedInstrument
+      // Fetch fresh prices from API instead of using potentially stale cached prices
+      let freshBid, freshAsk
+      try {
+        const priceRes = await fetch(`${API_URL}/prices/${trade.symbol}`)
+        const priceData = await priceRes.json()
+        
+        if (priceData.success && priceData.price?.bid && priceData.price?.ask) {
+          freshBid = priceData.price.bid
+          freshAsk = priceData.price.ask
+        }
+      } catch (e) {
+        console.error('Error fetching fresh price:', e)
+      }
       
-      const bid = livePrice?.bid || instrument.bid
-      const ask = livePrice?.ask || instrument.ask
+      // Fallback to cached prices if API fails
+      if (!freshBid || !freshAsk) {
+        const livePrice = livePrices[trade.symbol]
+        const instrument = instruments.find(i => i.symbol === trade.symbol) || selectedInstrument
+        freshBid = livePrice?.bid || instrument.bid
+        freshAsk = livePrice?.ask || instrument.ask
+      }
       
-      if (!bid || !ask || bid === 0 || ask === 0) {
+      if (!freshBid || !freshAsk || freshBid === 0 || freshAsk === 0) {
         setTradeError('Price not available. Please wait for prices to load.')
         return
       }
@@ -860,8 +875,8 @@ const TradingPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tradeId,
-          bid,
-          ask
+          bid: freshBid,
+          ask: freshAsk
         })
       })
 
